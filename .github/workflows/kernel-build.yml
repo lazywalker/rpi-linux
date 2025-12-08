@@ -95,9 +95,51 @@ jobs:
     - name: Tar build
       run: tar -cvf ${{matrix.name}}_build.tar -C ${{github.workspace}}/install .
 
+    - name: Build DEB package
+      run: |
+        mkdir -p ${{github.workspace}}/deb_build/DEBIAN
+        mkdir -p ${{github.workspace}}/deb_build/boot/overlays
+        cp -r ${{github.workspace}}/install/* ${{github.workspace}}/deb_build/ || true
+        cat > ${{github.workspace}}/deb_build/DEBIAN/control << 'EOF'
+        Package: linux-image-rpi-${{matrix.name}}
+        Version: $(grep "^VERSION = " Makefile | awk '{print $3}').$(grep "^PATCHLEVEL = " Makefile | awk '{print $3}').$(grep "^SUBLEVEL = " Makefile | awk '{print $3}')
+        Architecture: $(if [ "${{matrix.arch}}" = "arm64" ]; then echo "arm64"; else echo "armhf"; fi)
+        Maintainer: RPi Linux Build <build@example.com>
+        Description: Linux kernel image and modules for Raspberry Pi (${{matrix.name}})
+         This package contains the compiled Linux kernel image, modules, and device tree
+         binaries for Raspberry Pi ${{matrix.name}}.
+        EOF
+        dpkg-deb --build ${{github.workspace}}/deb_build ${{matrix.name}}_kernel.deb
+
+    - name: Upload DEB artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{matrix.name}}_deb
+        path: ${{matrix.name}}_kernel.deb
+        retention-days: 90
+
     - name: Upload results
       uses: actions/upload-artifact@v4
       with:
         name: ${{matrix.name}}_build
         path: ${{matrix.name}}_build.tar
         retention-days: 90
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/cpi-')
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create draft release
+      uses: softprops/action-gh-release@v1
+      with:
+        draft: true
+        tag_name: build-${{github.run_number}}-${{github.run_id}}
+        name: Draft Release - Build ${{github.run_number}}
+        files: artifacts/**/*.deb
+        token: ${{secrets.GITHUB_TOKEN}}
