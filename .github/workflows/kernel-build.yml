@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 env:
-  NUM_JOBS: 8
+  NUM_JOBS: 6
 
 jobs:
   build:
@@ -109,33 +109,37 @@ jobs:
           export IMAGE=zImage
         fi
 
-        make O=$${{github.workspace}}/build ${{matrix.defconfig}}
-        #scripts/config --file $${{github.workspace}}/build/.config --set-val CONFIG_WERROR y
-        make O=$${{github.workspace}}/build -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
+        export BUILD_DIR="${{github.workspace}}/build"
+        export INSTALL_DIR="${{github.workspace}}/install"
+        export BOOT_DIR="${INSTALL_DIR}/boot"
 
-        mkdir -p ${{github.workspace}}/install/boot/firmware/overlays
-        make O=$${{github.workspace}}/build INSTALL_MOD_PATH=${{github.workspace}}/install modules_install
+        make O=${BUILD_DIR} ${{matrix.defconfig}}
+        #scripts/config --file ${BUILD_DIR}/.config --set-val CONFIG_WERROR y
+        make O=${BUILD_DIR} -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
+
+        mkdir -p ${BOOT_DIR}/firmware/overlays
+        make O=${BUILD_DIR} INSTALL_MOD_PATH=${INSTALL_DIR} modules_install
         
         export KERNEL_VER=$(make kernelrelease)
 
-        cp $${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/firmware/
-        cp $${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/firmware/overlays/
-        if [[ -f "$${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/README" ]]; then
-          cp $${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/firmware/overlays/
+        cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${BOOT_DIR}/firmware/
+        cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/*.dtb* ${BOOT_DIR}/firmware/overlays/
+        if [[ -f "${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/README" ]]; then
+          cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/README ${BOOT_DIR}/firmware/overlays/
         fi
-        # cp $${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/${{matrix.kernel}}.img
+        # cp ${BUILD_DIR}/arch/${ARCH}/boot/$IMAGE ${BOOT_DIR}/${{matrix.kernel}}.img
 
-        cp $${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/vmlinuz-${KERNEL_VER}
+        cp ${BUILD_DIR}/arch/${ARCH}/boot/$IMAGE ${BOOT_DIR}/vmlinuz-${KERNEL_VER}
 
-        cp $${{github.workspace}}/build/System.map  ${{github.workspace}}/install/boot/System.map-${KERNEL_VER}
-        cp $${{github.workspace}}/build/.config  ${{github.workspace}}/install/boot/config-${KERNEL_VER}
+        cp ${BUILD_DIR}/System.map  ${BOOT_DIR}/System.map-${KERNEL_VER}
+        cp ${BUILD_DIR}/.config  ${BOOT_DIR}/config-${KERNEL_VER}
 
-        make header_install INSTALL_HDR_PATH=${{github.workspace}}/install/usr/src/linux-headers-${KERNEL_VER}
+        make header_install INSTALL_HDR_PATH=${INSTALL_DIR}/usr/src/linux-headers-${KERNEL_VER}
 
     - name: Tar build
       run: |
         export INSTALL_DIR="${{github.workspace}}/install"
-        tar -cvfz ${{matrix.name}}-build.tar.gz -C ${{github.workspace}}/install .
+        tar -cvfz ${{matrix.name}}-build.tar.gz -C ${INSTALL_DIR} .
 
     # - name: Build DEB package
     #   run: |
