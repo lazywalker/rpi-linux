@@ -4,15 +4,15 @@ on:
   pull_request:
     paths-ignore:
       - '.github/**'
-    branches: [ "rpi-*" ]
+    branches: [ "rpi-*", "uconsole-*" ]
   push:
     paths-ignore:
       - '.github/**'
-    branches: [ "rpi-*" ]
+    branches: [ "rpi-*", "uconsole-*" ]
   workflow_dispatch:
 
 env:
-  NUM_JOBS: 6
+  NUM_JOBS: 8
 
 jobs:
   build:
@@ -125,7 +125,9 @@ jobs:
 
         cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${BOOT_DIR}/firmware/
         cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/*.dtb* ${BOOT_DIR}/firmware/overlays/
-        cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/README ${BOOT_DIR}/firmware/overlays/
+        if [[ -f "${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/README" ]]; then
+          cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/README ${BOOT_DIR}/firmware/overlays/
+        fi
         # cp ${BUILD_DIR}/arch/${ARCH}/boot/$IMAGE ${BOOT_DIR}/${{matrix.kernel}}.img
 
         cp ${BUILD_DIR}/arch/${ARCH}/boot/$IMAGE ${BOOT_DIR}/vmlinuz-${KERNEL_VER}
