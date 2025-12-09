@@ -56,31 +56,31 @@ jobs:
             kernel: kernel_2712
 
     steps:
-    # - name: Install toolchain
-    #   run: |
-    #     sudo apt-get update
-    #     sudo apt install -y build-essential \
-    #            linux-headers-generic
-    #     sudo apt install -y git \
-    #            bc \
-    #            bison \
-    #            flex \
-    #            libssl-dev \
-    #            make \
-    #            libc6-dev \
-    #            libncurses5-dev
-    #     sudo apt install -y libncurses-dev \
-    #            gawk \
-    #            openssl \
-    #            libssl-dev \
-    #            dkms \
-    #            libelf-dev \
-    #            libudev-dev \
-    #            libpci-dev \
-    #            libiberty-dev \
-    #            autoconf \
-    #            llvm
-    #   timeout-minutes: 15
+    - name: Install toolchain
+      run: |
+        sudo apt-get update
+        sudo apt install -y build-essential \
+               linux-headers-generic
+        sudo apt install -y git \
+               bc \
+               bison \
+               flex \
+               libssl-dev \
+               make \
+               libc6-dev \
+               libncurses5-dev
+        sudo apt install -y libncurses-dev \
+               gawk \
+               openssl \
+               libssl-dev \
+               dkms \
+               libelf-dev \
+               libudev-dev \
+               libpci-dev \
+               libiberty-dev \
+               autoconf \
+               llvm
+      timeout-minutes: 15
       
     - name: Install armhf crossbuild toolchain
       if: matrix.arch == 'arm'
@@ -108,18 +108,37 @@ jobs:
           export DTS_SUBDIR=broadcom
           export IMAGE=zImage
         fi
-        make O=${{github.workspace}}/build ${{matrix.defconfig}}
-        #scripts/config --file ${{github.workspace}}/build/.config --set-val CONFIG_WERROR y
-        make O=${{github.workspace}}/build -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
-        mkdir -p ${{github.workspace}}/install/boot/overlays
-        make O=${{github.workspace}}/build INSTALL_MOD_PATH=${{github.workspace}}/install modules_install
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/overlays/
-        cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/overlays/
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/${{matrix.kernel}}.img
+
+        export BUILD_DIR="${{github.workspace}}/build"
+        export INSTALL_DIR="${{github.workspace}}/install"
+        export BOOT_DIR="${INSTALL_DIR}/boot"
+
+        make O=${BUILD_DIR} ${{matrix.defconfig}}
+        #scripts/config --file ${BUILD_DIR}/.config --set-val CONFIG_WERROR y
+        make O=${BUILD_DIR} -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
+
+        mkdir -p ${BOOT_DIR}/firmware
+        mkdir -p ${BOOT_DIR}/firmware/overlays
+        make O=${BUILD_DIR} INSTALL_MOD_PATH=${INSTALL_DIR} modules_install
+        
+        export KERNEL_VER=$(make kernelrelease)
+
+        cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${BOOT_DIR}/firmware/
+        cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/*.dtb* ${BOOT_DIR}/firmware/overlays/
+        cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/README ${BOOT_DIR}/firmware/overlays/
+        # cp ${BUILD_DIR}/arch/${ARCH}/boot/$IMAGE ${BOOT_DIR}/${{matrix.kernel}}.img
+
+        cp ${BUILD_DIR}/arch/${ARCH}/boot/$IMAGE ${BOOT_DIR}/vmlinuz-${KERNEL_VER}
+
+        cp ${BUILD_DIR}/System.map  ${BOOT_DIR}/System.map-${KERNEL_VER}
+        cp ${BUILD_DIR}/.config  ${BOOT_DIR}/config-${KERNEL_VER}
+
+        make header_install INSTALL_HDR_PATH=${INSTALL_DIR}/usr/src/linux-headers-${KERNEL_VER}
 
     - name: Tar build
-      run: tar -cvf ${{matrix.name}}_build.tar -C ${{github.workspace}}/install .
+      run: |
+        export INSTALL_DIR="${{github.workspace}}/install"
+        tar -cvfz ${{matrix.name}}-build.tar.gz -C ${INSTALL_DIR} .
 
     # - name: Build DEB package
     #   run: |
@@ -147,8 +166,8 @@ jobs:
     - name: Upload results
       uses: actions/upload-artifact@v4
       with:
-        name: ${{matrix.name}}_build
-        path: ${{matrix.name}}_build.tar
+        name: ${{matrix.name}}-build
+        path: ${{matrix.name}}-build.tar.gz
         retention-days: 90
 
   publish:
