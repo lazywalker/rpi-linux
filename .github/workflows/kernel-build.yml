@@ -56,13 +56,9 @@ jobs:
             kernel: kernel_2712
 
     steps:
-    - name: Install armhf crossbuild toolchain
-      if: matrix.arch == 'arm'
-      env:
-        DEBIAN_FRONTEND: noninteractive
+    - name: Install toolchain
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-arm-linux-gnueabihf
         sudo apt install -y build-essential \
                linux-headers-generic
         sudo apt install -y git \
@@ -84,6 +80,15 @@ jobs:
                libiberty-dev \
                autoconf \
                llvm
+      timeout-minutes: 15
+      
+    - name: Install armhf crossbuild toolchain
+      if: matrix.arch == 'arm'
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-arm-linux-gnueabihf
       timeout-minutes: 15
 
     - uses: actions/checkout@v4
