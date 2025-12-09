@@ -121,28 +121,28 @@ jobs:
     - name: Tar build
       run: tar -cvf ${{matrix.name}}_build.tar -C ${{github.workspace}}/install .
 
-    - name: Build DEB package
-      run: |
-        mkdir -p ${{github.workspace}}/deb_build/DEBIAN
-        mkdir -p ${{github.workspace}}/deb_build/boot/overlays
-        cp -r ${{github.workspace}}/install/* ${{github.workspace}}/deb_build/ || true
-        cat > ${{github.workspace}}/deb_build/DEBIAN/control << 'EOF'
-        Package: linux-image-rpi-${{matrix.name}}
-        Version: $(grep "^VERSION = " Makefile | awk '{print $3}').$(grep "^PATCHLEVEL = " Makefile | awk '{print $3}').$(grep "^SUBLEVEL = " Makefile | awk '{print $3}')
-        Architecture: $(if [ "${{matrix.arch}}" = "arm64" ]; then echo "arm64"; else echo "armhf"; fi)
-        Maintainer: RPi Linux Build <build@example.com>
-        Description: Linux kernel image and modules for Raspberry Pi (${{matrix.name}})
-         This package contains the compiled Linux kernel image, modules, and device tree
-         binaries for Raspberry Pi ${{matrix.name}}.
-        EOF
-        dpkg-deb --build ${{github.workspace}}/deb_build ${{matrix.name}}_kernel.deb
+    # - name: Build DEB package
+    #   run: |
+    #     mkdir -p ${{github.workspace}}/deb_build/DEBIAN
+    #     mkdir -p ${{github.workspace}}/deb_build/boot/overlays
+    #     cp -r ${{github.workspace}}/install/* ${{github.workspace}}/deb_build/ || true
+    #     cat > ${{github.workspace}}/deb_build/DEBIAN/control << 'EOF'
+    #     Package: linux-image-rpi-${{matrix.name}}
+    #     Version: $(grep "^VERSION = " Makefile | awk '{print $3}').$(grep "^PATCHLEVEL = " Makefile | awk '{print $3}').$(grep "^SUBLEVEL = " Makefile | awk '{print $3}')
+    #     Architecture: $(if [ "${{matrix.arch}}" = "arm64" ]; then echo "arm64"; else echo "armhf"; fi)
+    #     Maintainer: RPi Linux Build <build@example.com>
+    #     Description: Linux kernel image and modules for Raspberry Pi (${{matrix.name}})
+    #      This package contains the compiled Linux kernel image, modules, and device tree
+    #      binaries for Raspberry Pi ${{matrix.name}}.
+    #     EOF
+    #     dpkg-deb --build ${{github.workspace}}/deb_build ${{matrix.name}}_kernel.deb
 
-    - name: Upload DEB artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{matrix.name}}_deb
-        path: ${{matrix.name}}_kernel.deb
-        retention-days: 90
+    # - name: Upload DEB artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: ${{matrix.name}}_deb
+    #     path: ${{matrix.name}}_kernel.deb
+    #     retention-days: 90
 
     - name: Upload results
       uses: actions/upload-artifact@v4
