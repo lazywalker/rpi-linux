@@ -56,32 +56,6 @@ jobs:
             kernel: kernel_2712
 
     steps:
-    # - name: Install toolchain
-    #   run: |
-    #     sudo apt-get update
-    #     sudo apt install -y build-essential \
-    #            linux-headers-generic
-    #     sudo apt install -y git \
-    #            bc \
-    #            bison \
-    #            flex \
-    #            libssl-dev \
-    #            make \
-    #            libc6-dev \
-    #            libncurses5-dev
-    #     sudo apt install -y libncurses-dev \
-    #            gawk \
-    #            openssl \
-    #            libssl-dev \
-    #            dkms \
-    #            libelf-dev \
-    #            libudev-dev \
-    #            libpci-dev \
-    #            libiberty-dev \
-    #            autoconf \
-    #            llvm
-    #   timeout-minutes: 15
-      
     - name: Install armhf crossbuild toolchain
       if: matrix.arch == 'arm'
       env:
@@ -109,45 +83,27 @@ jobs:
           export IMAGE=zImage
         fi
         make O=${{github.workspace}}/build ${{matrix.defconfig}}
-        #scripts/config --file ${{github.workspace}}/build/.config --set-val CONFIG_WERROR y
         make O=${{github.workspace}}/build -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
-        mkdir -p ${{github.workspace}}/install/boot/overlays
+        mkdir -p ${{github.workspace}}/install/boot/firmware/overlays
         make O=${{github.workspace}}/build INSTALL_MOD_PATH=${{github.workspace}}/install modules_install
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/overlays/
-        cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/overlays/
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/${{matrix.kernel}}.img
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/firmware/
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/firmware/overlays/
+        cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/firmware/overlays/
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/firmware/${{matrix.kernel}}.img
+        KERNEL_VER=$(make kernelrelease)
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/vmlinuz-${KERNEL_VER}
+        cp ${{github.workspace}}/build/System.map  ${{github.workspace}}/install/boot/System.map-${KERNEL_VER}
+        cp ${{github.workspace}}/build/.config  ${{github.workspace}}/install/boot/config-${KERNEL_VER}
+        make header_install INSTALL_HDR_PATH=${{github.workspace}}/install/usr/src/linux-headers-${KERNEL_VER}
+
     - name: Tar build
-      run: tar -cvf ${{matrix.name}}_build.tar -C ${{github.workspace}}/install .
-
-    # - name: Build DEB package
-    #   run: |
-    #     mkdir -p ${{github.workspace}}/deb_build/DEBIAN
-    #     mkdir -p ${{github.workspace}}/deb_build/boot/overlays
-    #     cp -r ${{github.workspace}}/install/* ${{github.workspace}}/deb_build/ || true
-    #     cat > ${{github.workspace}}/deb_build/DEBIAN/control << 'EOF'
-    #     Package: linux-image-rpi-${{matrix.name}}
-    #     Version: $(grep "^VERSION = " Makefile | awk '{print $3}').$(grep "^PATCHLEVEL = " Makefile | awk '{print $3}').$(grep "^SUBLEVEL = " Makefile | awk '{print $3}')
-    #     Architecture: $(if [ "${{matrix.arch}}" = "arm64" ]; then echo "arm64"; else echo "armhf"; fi)
-    #     Maintainer: RPi Linux Build <build@example.com>
-    #     Description: Linux kernel image and modules for Raspberry Pi (${{matrix.name}})
-    #      This package contains the compiled Linux kernel image, modules, and device tree
-    #      binaries for Raspberry Pi ${{matrix.name}}.
-    #     EOF
-    #     dpkg-deb --build ${{github.workspace}}/deb_build ${{matrix.name}}_kernel.deb
-
-    # - name: Upload DEB artifact
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: ${{matrix.name}}_deb
-    #     path: ${{matrix.name}}_kernel.deb
-    #     retention-days: 90
+      run: tar -cvfz ${{matrix.name}}_build.tar.gz -C ${{github.workspace}}/install .
 
     - name: Upload results
       uses: actions/upload-artifact@v4
       with:
         name: ${{matrix.name}}_build
-        path: ${{matrix.name}}_build.tar
+        path: ${{matrix.name}}_build.tar.gz
         retention-days: 90
 
   publish:
