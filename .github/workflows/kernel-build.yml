@@ -80,11 +80,12 @@ jobs:
         make prepare
         KERNEL_RELEASE=$(make kernelrelease)
         echo "KERNEL_VER=$KERNEL_RELEASE" >> $GITHUB_OUTPUT
-        make clean
-        rm -rf ${{github.workspace}}/build
     - name: Build kernel ${{matrix.name}}
       run: |
-        mkdir ${{github.workspace}}/build
+        make clean
+        make mrproper
+        rm -rf ${{github.workspace}}/build
+        mkdir -p ${{github.workspace}}/build
         export ARCH=${{matrix.arch}}
         if [[ "$ARCH" == "arm64" ]]; then
           export DTS_SUBDIR=broadcom
