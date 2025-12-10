@@ -56,6 +56,7 @@ jobs:
             kernel: kernel_2712
 
     steps:
+    
     - name: Install armhf crossbuild toolchain
       if: matrix.arch == 'arm'
       env:
@@ -83,44 +84,20 @@ jobs:
           export IMAGE=zImage
         fi
         make O=${{github.workspace}}/build ${{matrix.defconfig}}
+        #scripts/config --file ${{github.workspace}}/build/.config --set-val CONFIG_WERROR y
         make O=${{github.workspace}}/build -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
-        mkdir -p ${{github.workspace}}/install/boot/firmware/overlays
+        mkdir -p ${{github.workspace}}/install/boot/overlays
         make O=${{github.workspace}}/build INSTALL_MOD_PATH=${{github.workspace}}/install modules_install
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/firmware/
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/firmware/overlays/
-        cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/firmware/overlays/
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/firmware/${{matrix.kernel}}.img
-        KERNEL_VER=$(make kernelrelease)
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/vmlinuz-${KERNEL_VER}
-        cp ${{github.workspace}}/build/System.map  ${{github.workspace}}/install/boot/System.map-${KERNEL_VER}
-        cp ${{github.workspace}}/build/.config  ${{github.workspace}}/install/boot/config-${KERNEL_VER}
-        make header_install INSTALL_HDR_PATH=${{github.workspace}}/install/usr/src/linux-headers-${KERNEL_VER}
-
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/overlays/
+        cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/overlays/
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/${{matrix.kernel}}.img
     - name: Tar build
-      run: tar -cvfz ${{matrix.name}}_build.tar.gz -C ${{github.workspace}}/install .
+      run: tar -cvf ${{matrix.name}}_build.tar -C ${{github.workspace}}/install .
 
     - name: Upload results
       uses: actions/upload-artifact@v4
       with:
         name: ${{matrix.name}}_build
-        path: ${{matrix.name}}_build.tar.gz
+        path: ${{matrix.name}}_build.tar
         retention-days: 90
-
-  publish:
-    needs: build
-    runs-on: ubuntu-24.04-arm
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/cpi-')
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
-
-    - name: Create draft release
-      uses: softprops/action-gh-release@v1
-      with:
-        draft: true
-        tag_name: build-${{github.run_number}}-${{github.run_id}}
-        name: Draft Release - Build ${{github.run_number}}
-        files: artifacts/**/*.deb
-        token: ${{secrets.GITHUB_TOKEN}}
