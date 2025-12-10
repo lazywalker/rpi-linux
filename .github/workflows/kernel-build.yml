@@ -71,7 +71,8 @@ jobs:
         fetch-depth: 1
         clean: true
 
-    - name: Build kernel ${{matrix.name}}
+    - id: build
+      name: Build kernel ${{ matrix.name }}
       shell: bash
       run: |
         set -euo pipefail
@@ -91,38 +92,37 @@ jobs:
           export IMAGE=zImage
         fi
 
-        # Create out-of-tree config and prepare the build tree (always use O=...)
         make O="$BUILD_DIR" ${{matrix.defconfig}}
+        make O="$BUILD_DIR" oldconfig
+        make O="$BUILD_DIR" prepare
 
-        # get kernel version from the build tree
         KERNEL_VER=$(make -s O="$BUILD_DIR" kernelrelease)
-        echo "KERNEL_VER=$KERNEL_VER"
+        echo "KERNEL_VER=$KERNEL_VER" >> $GITHUB_OUTPUT
 
-        # compile image, modules and dtbs
         make O="$BUILD_DIR" -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
 
         mkdir -p "$INSTALL_DIR/boot/firmware/overlays"
         make O="$BUILD_DIR" INSTALL_MOD_PATH="$INSTALL_DIR" modules_install
 
-        # copy dtbs/overlays and kernel image from the out-of-tree build
-        cp "$BUILD_DIR/arch/${ARCH}/boot/dts/${DTS_SUBDIR}"/*.dtb "$INSTALL_DIR/boot/firmware/" || true
-        cp "$BUILD_DIR/arch/${ARCH}/boot/dts/overlays/"*.dtb* "$INSTALL_DIR/boot/firmware/overlays/" || true
-        cp "${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README" "$INSTALL_DIR/boot/firmware/overlays/" || true
+        cp "$BUILD_DIR/arch/${ARCH}/boot/dts/${DTS_SUBDIR}"/*.dtb "$INSTALL_DIR/boot/firmware/" 2>/dev/null || true
+        cp "$BUILD_DIR/arch/${ARCH}/boot/dts/overlays/"*.dtb* "$INSTALL_DIR/boot/firmware/overlays/" 2>/dev/null || true
+        cp "${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README" "$INSTALL_DIR/boot/firmware/overlays/" 2>/dev/null || true
 
         cp "$BUILD_DIR/arch/${ARCH}/boot/$IMAGE" "$INSTALL_DIR/boot/firmware/${{matrix.kernel}}.img"
         cp "$BUILD_DIR/arch/${ARCH}/boot/${IMAGE}" "$INSTALL_DIR/boot/vmlinuz-${KERNEL_VER}"
         cp "$BUILD_DIR/System.map"  "$INSTALL_DIR/boot/System.map-${KERNEL_VER}"
         cp "$BUILD_DIR/.config"  "$INSTALL_DIR/boot/config-${KERNEL_VER}"
 
-        # install headers from the out-of-tree build (note: headers_install, and include O=...)
         make O="$BUILD_DIR" headers_install INSTALL_HDR_PATH="$INSTALL_DIR/usr/src/linux-headers-${KERNEL_VER}"
 
     - name: Tar build
-      run: tar -cvf ${{matrix.name}}_build.tar.gz -C ${{github.workspace}}/install .
+      run: |
+        TAR_NAME=${{ matrix.name }}_${{ steps.build.outputs.KERNEL_VER }}-${{ matrix.arch }}.tar.gz
+        tar -cvzf "$TAR_NAME" -C ${{ github.workspace }}/install .
 
     - name: Upload results
       uses: actions/upload-artifact@v4
       with:
-        name: ${{matrix.name}}_build
-        path: ${{matrix.name}}_build.tar.gz
+        name: ${{ matrix.name }}_${{ steps.build.outputs.KERNEL_VER }}-${{ matrix.arch }}.tar.gz
+        path: ${{ matrix.name }}_${{ steps.build.outputs.KERNEL_VER }}-${{ matrix.arch }}.tar.gz
         retention-days: 90
