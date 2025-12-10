@@ -4,15 +4,15 @@ on:
   pull_request:
     paths-ignore:
       - '.github/**'
-    branches: [ "rpi-*", "uconsole-*" ]
+    branches: [ "rpi-*" ]
   push:
     paths-ignore:
       - '.github/**'
-    branches: [ "rpi-*", "uconsole-*" ]
+    branches: [ "rpi-*" ]
   workflow_dispatch:
 
 env:
-  NUM_JOBS: 8
+  NUM_JOBS: 6
 
 jobs:
   build:
@@ -25,8 +25,37 @@ jobs:
             defconfig: bcm2835_defconfig
             kernel: kernel
 
+          - name: arm64
+            arch: arm64
+            defconfig: defconfig
+            kernel: kernel8
+
+          - name: bcmrpi
+            arch: arm
+            defconfig: bcmrpi_defconfig
+            kernel: kernel
+
+          - name: bcm2709
+            arch: arm
+            defconfig: bcm2709_defconfig
+            kernel: kernel7
+
+          - name: bcm2711
+            arch: arm64
+            defconfig: bcm2711_defconfig
+            kernel: kernel8
+
+          - name: bcm2711_rt
+            arch: arm64
+            defconfig: bcm2711_rt_defconfig
+            kernel: kernel8_rt
+
+          - name: bcm2712
+            arch: arm64
+            defconfig: bcm2712_defconfig
+            kernel: kernel_2712
+
     steps:
-    
     - name: Install armhf crossbuild toolchain
       if: matrix.arch == 'arm'
       env:
@@ -53,69 +82,30 @@ jobs:
           export DTS_SUBDIR=broadcom
           export IMAGE=zImage
         fi
+        make O=${{github.workspace}}/build ${{matrix.defconfig}}
+        make O=${{github.workspace}}/build -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
+        mkdir -p ${{github.workspace}}/install/boot/firmware/overlays
+        make O=${{github.workspace}}/build INSTALL_MOD_PATH=${{github.workspace}}/install modules_install
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/firmware/
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/firmware/overlays/
+        cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/firmware/overlays/
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/firmware/${{matrix.kernel}}.img
 
-        export BUILD_DIR="${{github.workspace}}/build"
-        export INSTALL_DIR="${{github.workspace}}/install"
-        export BOOT_DIR="${INSTALL_DIR}/boot"
+        KERNEL_VER=$(make kernelrelease)
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/vmlinuz-${KERNEL_VER}
+        cp ${{github.workspace}}/build/System.map  ${{github.workspace}}/install/boot/System.map-${KERNEL_VER}
+        cp ${{github.workspace}}/build/.config  ${{github.workspace}}/install/boot/config-${KERNEL_VER}
 
-        make clean O=${BUILD_DIR}
-        make O=${BUILD_DIR} ${{matrix.defconfig}}
-        make O=${BUILD_DIR} oldconfig
-        #scripts/config --file ${BUILD_DIR}/.config --set-val CONFIG_WERROR y
-        make O=${BUILD_DIR} -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
-
-        mkdir -p ${BOOT_DIR}/firmware/overlays
-        make O=${BUILD_DIR} INSTALL_MOD_PATH=${INSTALL_DIR} modules_install
-        
-        export KERNEL_VER=$(make kernelrelease)
-
-        cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${BOOT_DIR}/firmware/
-        cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/*.dtb* ${BOOT_DIR}/firmware/overlays/
-        if [[ -f "${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/README" ]]; then
-          cp ${BUILD_DIR}/arch/${ARCH}/boot/dts/overlays/README ${BOOT_DIR}/firmware/overlays/
-        fi
-        # cp ${BUILD_DIR}/arch/${ARCH}/boot/$IMAGE ${BOOT_DIR}/${{matrix.kernel}}.img
-
-        cp ${BUILD_DIR}/arch/${ARCH}/boot/$IMAGE ${BOOT_DIR}/vmlinuz-${KERNEL_VER}
-
-        cp ${BUILD_DIR}/System.map  ${BOOT_DIR}/System.map-${KERNEL_VER}
-        cp ${BUILD_DIR}/.config  ${BOOT_DIR}/config-${KERNEL_VER}
-
-        make header_install INSTALL_HDR_PATH=${INSTALL_DIR}/usr/src/linux-headers-${KERNEL_VER}
+        make header_install INSTALL_HDR_PATH=${{github.workspace}}/install/usr/src/linux-headers-${KERNEL_VER}
 
     - name: Tar build
-      run: |
-        export INSTALL_DIR="${{github.workspace}}/install"
-        tar -cvfz ${{matrix.name}}-build.tar.gz -C ${INSTALL_DIR} .
-
-    # - name: Build DEB package
-    #   run: |
-    #     mkdir -p ${{github.workspace}}/deb_build/DEBIAN
-    #     mkdir -p ${{github.workspace}}/deb_build/boot/overlays
-    #     cp -r ${{github.workspace}}/install/* ${{github.workspace}}/deb_build/ || true
-    #     cat > ${{github.workspace}}/deb_build/DEBIAN/control << 'EOF'
-    #     Package: linux-image-rpi-${{matrix.name}}
-    #     Version: $(grep "^VERSION = " Makefile | awk '{print $3}').$(grep "^PATCHLEVEL = " Makefile | awk '{print $3}').$(grep "^SUBLEVEL = " Makefile | awk '{print $3}')
-    #     Architecture: $(if [ "${{matrix.arch}}" = "arm64" ]; then echo "arm64"; else echo "armhf"; fi)
-    #     Maintainer: RPi Linux Build <build@example.com>
-    #     Description: Linux kernel image and modules for Raspberry Pi (${{matrix.name}})
-    #      This package contains the compiled Linux kernel image, modules, and device tree
-    #      binaries for Raspberry Pi ${{matrix.name}}.
-    #     EOF
-    #     dpkg-deb --build ${{github.workspace}}/deb_build ${{matrix.name}}_kernel.deb
-
-    # - name: Upload DEB artifact
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: ${{matrix.name}}_deb
-    #     path: ${{matrix.name}}_kernel.deb
-    #     retention-days: 90
+      run: tar -cvfz ${{matrix.name}}_build.tar.gz -C ${{github.workspace}}/install .
 
     - name: Upload results
       uses: actions/upload-artifact@v4
       with:
-        name: ${{matrix.name}}-build
-        path: ${{matrix.name}}-build.tar.gz
+        name: ${{matrix.name}}_build
+        path: ${{matrix.name}}_build.tar.gz
         retention-days: 90
 
   publish:
