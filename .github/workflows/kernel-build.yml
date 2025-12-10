@@ -90,7 +90,7 @@ jobs:
         make clean
         make mrproper
         rm -rf ${{github.workspace}}/build/*
-
+        make O=${{github.workspace}}/build ${{matrix.defconfig}}
         #scripts/config --file ${{github.workspace}}/build/.config --set-val CONFIG_WERROR y
         make O=${{github.workspace}}/build -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
         mkdir -p ${{github.workspace}}/install/boot/firmware/overlays
