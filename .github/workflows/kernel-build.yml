@@ -71,21 +71,9 @@ jobs:
         fetch-depth: 1
         clean: true
 
-    - name: Get kernel version
-      shell: bash
-      run: |
-        mkdir ${{github.workspace}}/build
-        make O=${{github.workspace}}/build ${{matrix.defconfig}}
-        make oldconfig
-        make prepare
-        KERNEL_RELEASE=$(make kernelrelease)
-        echo "KERNEL_VER=$KERNEL_RELEASE" >> $GITHUB_OUTPUT
     - name: Build kernel ${{matrix.name}}
       run: |
-        make clean
-        make mrproper
-        rm -rf ${{github.workspace}}/build
-        mkdir -p ${{github.workspace}}/build
+        mkdir ${{github.workspace}}/build
         export ARCH=${{matrix.arch}}
         if [[ "$ARCH" == "arm64" ]]; then
           export DTS_SUBDIR=broadcom
@@ -104,6 +92,9 @@ jobs:
         cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/firmware/overlays/
         cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/firmware/overlays/
         cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/firmware/${{matrix.kernel}}.img
+        make oldconfig
+        make prepare
+        KERNEL_VER=$(make kernelrelease)
         cp ${{github.workspace}}/build/arch/${ARCH}/boot/${IMAGE} ${{github.workspace}}/install/boot/vmlinuz-${KERNEL_VER}
         cp ${{github.workspace}}/build/System.map  ${{github.workspace}}/install/boot/System.map-${KERNEL_VER}
         cp ${{github.workspace}}/build/.config  ${{github.workspace}}/install/boot/config-${KERNEL_VER}
