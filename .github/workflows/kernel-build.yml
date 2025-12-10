@@ -74,6 +74,10 @@ jobs:
     - name: Get kernel version
       shell: bash
       run: |
+        mkdir ${{github.workspace}}/build
+        make O=${{github.workspace}}/build ${{matrix.defconfig}}
+        make oldconfig
+        make prepare
         KERNEL_RELEASE=$(make kernelrelease)
         echo "KERNEL_VER=$KERNEL_RELEASE" >> $GITHUB_OUTPUT
 
