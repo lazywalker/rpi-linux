@@ -71,6 +71,12 @@ jobs:
         fetch-depth: 1
         clean: true
 
+    - name: Get kernel version
+      shell: bash
+      run: |
+        KERNEL_RELEASE=$(make kernelrelease)
+        echo "KERNEL_VER=$KERNEL_RELEASE" >> $GITHUB_OUTPUT
+
     - name: Build kernel ${{matrix.name}}
       run: |
         mkdir ${{github.workspace}}/build
@@ -92,11 +98,10 @@ jobs:
         cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/firmware/overlays/
         cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/firmware/overlays/
         cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/firmware/${{matrix.kernel}}.img
-        KERNEL_VER=$(make kernelrelease)
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/${IMAGE} ${{github.workspace}}/install/boot/vmlinuz-$KERNEL_VER
-        cp ${{github.workspace}}/build/System.map  ${{github.workspace}}/install/boot/System.map-$KERNEL_VER
-        cp ${{github.workspace}}/build/.config  ${{github.workspace}}/install/boot/config-$KERNEL_VER
-        make header_install INSTALL_HDR_PATH=${{github.workspace}}/install/usr/src/linux-headers-$KERNEL_VER
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/${IMAGE} ${{github.workspace}}/install/boot/vmlinuz-${KERNEL_VER}
+        cp ${{github.workspace}}/build/System.map  ${{github.workspace}}/install/boot/System.map-${KERNEL_VER}
+        cp ${{github.workspace}}/build/.config  ${{github.workspace}}/install/boot/config-${KERNEL_VER}
+        make header_install INSTALL_HDR_PATH=${{github.workspace}}/install/usr/src/linux-headers-${KERNEL_VER}
     - name: Tar build
       run: tar -cvf ${{matrix.name}}_build.tar.gz -C ${{github.workspace}}/install .
 
