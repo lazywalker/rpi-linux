@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 env:
-  NUM_JOBS: 6
+  NUM_JOBS: 8
 
 jobs:
   build:
@@ -25,63 +25,8 @@ jobs:
             defconfig: bcm2835_defconfig
             kernel: kernel
 
-          - name: arm64
-            arch: arm64
-            defconfig: defconfig
-            kernel: kernel8
-
-          - name: bcmrpi
-            arch: arm
-            defconfig: bcmrpi_defconfig
-            kernel: kernel
-
-          - name: bcm2709
-            arch: arm
-            defconfig: bcm2709_defconfig
-            kernel: kernel7
-
-          - name: bcm2711
-            arch: arm64
-            defconfig: bcm2711_defconfig
-            kernel: kernel8
-
-          - name: bcm2711_rt
-            arch: arm64
-            defconfig: bcm2711_rt_defconfig
-            kernel: kernel8_rt
-
-          - name: bcm2712
-            arch: arm64
-            defconfig: bcm2712_defconfig
-            kernel: kernel_2712
-
     steps:
-    # - name: Install toolchain
-    #   run: |
-    #     sudo apt-get update
-    #     sudo apt install -y build-essential \
-    #            linux-headers-generic
-    #     sudo apt install -y git \
-    #            bc \
-    #            bison \
-    #            flex \
-    #            libssl-dev \
-    #            make \
-    #            libc6-dev \
-    #            libncurses5-dev
-    #     sudo apt install -y libncurses-dev \
-    #            gawk \
-    #            openssl \
-    #            libssl-dev \
-    #            dkms \
-    #            libelf-dev \
-    #            libudev-dev \
-    #            libpci-dev \
-    #            libiberty-dev \
-    #            autoconf \
-    #            llvm
-    #   timeout-minutes: 15
-      
+    
     - name: Install armhf crossbuild toolchain
       if: matrix.arch == 'arm'
       env:
@@ -113,7 +58,9 @@ jobs:
         export INSTALL_DIR="${{github.workspace}}/install"
         export BOOT_DIR="${INSTALL_DIR}/boot"
 
+        make clean O=${BUILD_DIR}
         make O=${BUILD_DIR} ${{matrix.defconfig}}
+        make O=${BUILD_DIR} oldconfig
         #scripts/config --file ${BUILD_DIR}/.config --set-val CONFIG_WERROR y
         make O=${BUILD_DIR} -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
 
