@@ -91,8 +91,7 @@ jobs:
         echo "KERNEL_VER=$KERNEL_RELEASE" >> $GITHUB_OUTPUT
     - name: Build kernel ${{matrix.name}}
       run: |
-        make clean
-        make mrproper
+        make distclean
         rm -rf ${{github.workspace}}/build
         mkdir -p ${{github.workspace}}/build
         export ARCH=${{matrix.arch}}
