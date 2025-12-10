@@ -71,9 +71,30 @@ jobs:
         fetch-depth: 1
         clean: true
 
+    - name: Get kernel version
+      shell: bash
+      run: |
+        export ARCH=${{matrix.arch}}
+        if [[ "$ARCH" == "arm64" ]]; then
+          export DTS_SUBDIR=broadcom
+          export IMAGE=Image.gz
+        else
+          export CROSS_COMPILE=arm-linux-gnueabihf-
+          export DTS_SUBDIR=broadcom
+          export IMAGE=zImage
+        fi
+        mkdir -p ${{github.workspace}}/build
+        make O=${{github.workspace}}/build ${{matrix.defconfig}}
+        make oldconfig
+        make prepare
+        KERNEL_RELEASE=$(make kernelrelease)
+        echo "KERNEL_VER=$KERNEL_RELEASE" >> $GITHUB_OUTPUT
     - name: Build kernel ${{matrix.name}}
       run: |
-        mkdir ${{github.workspace}}/build
+        make clean
+        make mrproper
+        rm -rf ${{github.workspace}}/build
+        mkdir -p ${{github.workspace}}/build
         export ARCH=${{matrix.arch}}
         if [[ "$ARCH" == "arm64" ]]; then
           export DTS_SUBDIR=broadcom
@@ -88,19 +109,14 @@ jobs:
         make O=${{github.workspace}}/build -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
         mkdir -p ${{github.workspace}}/install/boot/firmware/overlays
         make O=${{github.workspace}}/build INSTALL_MOD_PATH=${{github.workspace}}/install modules_install
-        make header_install INSTALL_HDR_PATH=${{github.workspace}}/install/usr/src/linux-headers
         cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/firmware/
         cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/firmware/overlays/
         cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/firmware/overlays/
         cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/firmware/${{matrix.kernel}}.img
-        
-        make oldconfig
-        make prepare
-        KERNEL_VER=$(make kernelrelease)
         cp ${{github.workspace}}/build/arch/${ARCH}/boot/${IMAGE} ${{github.workspace}}/install/boot/vmlinuz-${KERNEL_VER}
         cp ${{github.workspace}}/build/System.map  ${{github.workspace}}/install/boot/System.map-${KERNEL_VER}
         cp ${{github.workspace}}/build/.config  ${{github.workspace}}/install/boot/config-${KERNEL_VER}
-        mv ${{github.workspace}}/install/usr/src/linux-headers ${{github.workspace}}/install/usr/src/linux-headers-${KERNEL_VER}
+        make header_install INSTALL_HDR_PATH=${{github.workspace}}/install/usr/src/linux-headers-${KERNEL_VER}
     - name: Tar build
       run: tar -cvf ${{matrix.name}}_build.tar.gz -C ${{github.workspace}}/install .
 
