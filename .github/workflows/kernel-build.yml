@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 env:
-  NUM_JOBS: 6
+  NUM_JOBS: 8
 
 jobs:
   build:
@@ -56,7 +56,7 @@ jobs:
             kernel: kernel_2712
 
     steps:
-    
+
     - name: Install armhf crossbuild toolchain
       if: matrix.arch == 'arm'
       env:
@@ -86,12 +86,12 @@ jobs:
         make O=${{github.workspace}}/build ${{matrix.defconfig}}
         #scripts/config --file ${{github.workspace}}/build/.config --set-val CONFIG_WERROR y
         make O=${{github.workspace}}/build -j ${{env.NUM_JOBS}} $IMAGE modules dtbs
-        mkdir -p ${{github.workspace}}/install/boot/overlays
+        mkdir -p ${{github.workspace}}/install/boot/firmware/overlays
         make O=${{github.workspace}}/build INSTALL_MOD_PATH=${{github.workspace}}/install modules_install
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/overlays/
-        cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/overlays/
-        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/${{matrix.kernel}}.img
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/${DTS_SUBDIR}/*.dtb ${{github.workspace}}/install/boot/firmware/
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/dts/overlays/*.dtb* ${{github.workspace}}/install/boot/firmware/overlays/
+        cp ${{github.workspace}}/arch/${ARCH}/boot/dts/overlays/README ${{github.workspace}}/install/boot/firmware/overlays/
+        cp ${{github.workspace}}/build/arch/${ARCH}/boot/$IMAGE ${{github.workspace}}/install/boot/firmware/${{matrix.kernel}}.img
     - name: Tar build
       run: tar -cvf ${{matrix.name}}_build.tar -C ${{github.workspace}}/install .
 
