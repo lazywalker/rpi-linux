@@ -125,12 +125,12 @@ jobs:
 
     - name: Tar build
       run: |
-        TAR_NAME=${{ matrix.name }}_${{ steps.build.outputs.KERNEL_VER }}-${{ matrix.arch }}.tar.gz
+        TAR_NAME=uconsole-cm-${{ matrix.name }}_${{ steps.build.outputs.KERNEL_VER }}-${{ matrix.arch }}.tar.gz
         tar -cvzf "$TAR_NAME" -C ${{ github.workspace }}/install .
 
     - name: Upload results
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.name }}_${{ steps.build.outputs.KERNEL_VER }}-${{ matrix.arch }}.tar.gz
-        path: ${{ matrix.name }}_${{ steps.build.outputs.KERNEL_VER }}-${{ matrix.arch }}.tar.gz
+        name: uconsole-cm-${{ matrix.name }}_${{ steps.build.outputs.KERNEL_VER }}-${{ matrix.arch }}.tar.gz
+        path: uconsole-cm-${{ matrix.name }}_${{ steps.build.outputs.KERNEL_VER }}-${{ matrix.arch }}.tar.gz
         retention-days: 90
